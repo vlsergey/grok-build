@@ -816,6 +816,17 @@ pub struct AgentDefinition {
     pub completion_requirement: Option<CompletionRequirement>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_overrides: Option<xai_grok_sampling_types::ToolOverrides>,
+    /// FORK-LOCAL: sampling temperature for this agent, 0.0–2.0.
+    ///
+    /// Lets one agent definition run hot and another cold in the same session —
+    /// a prose writer at 1.3 while its reviewer stays at 0.2. `None` inherits the
+    /// session value resolved from `[models]` / `[model.<id>]`.
+    ///
+    /// Applied in `handle_subagent_request` after model resolution, alongside the
+    /// existing `reasoning_effort` override. Single-word field name, so the
+    /// `camelCase` rename is a no-op and `.md` frontmatter spells it `temperature`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
     /// Subagent types this agent can spawn (derived by builder from `tools`).
     /// `None` = unrestricted, `Some([t1])` = restricted, `Some([])` = blocked.
     #[serde(skip)]
@@ -1524,6 +1535,7 @@ impl AgentDefinition {
             model: ModelOverride::Inherit,
             completion_requirement: None,
             tool_overrides: None,
+            temperature: None,
             prompt_body: None,
             system_prompt: TemplateOverride::None,
             source_path: None,

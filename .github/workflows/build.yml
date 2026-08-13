@@ -1,0 +1,114 @@
+name: build
+
+# Форк xai-org/grok-build. Апстрим не публикует свой CI и не принимает внешние PR
+# (см. CONTRIBUTING.md), поэтому этот workflow — наш, для проверки локальных патчей.
+#
+# Две стадии:
+#   check  — ubuntu, быстрый сигнал «патч компилируется», вместе с тестами;
+#   build  — windows, релизный бинарь как артефакт (пользователь на Windows).
+# Ubuntu впереди намеренно: Rust там собирается кратно быстрее, и незачем
+# занимать медленный windows-раннер, если правка вообще не компилируется.
+
+on:
+  push:
+    branches:
+      - "feat/**"
+      - "fix/**"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      skip_windows:
+        description: "Только check на ubuntu, без релизной сборки"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # В CI инкрементальная сборка только раздувает кэш и диск.
+  CARGO_INCREMENTAL: 0
+  # Внятная диагностика при падении в панике внутри build.rs / тестов.
+  RUST_BACKTRACE: 1
+
+jobs:
+  check:
+    name: check (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      # Версия берётся из rust-toolchain.toml (там пин 1.94.0 + rustfmt/clippy).
+      - name: Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: check-ubuntu
+          cache-all-crates: true
+
+      - name: Освободить место на раннере
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+
+      # --all-targets включает тесты. Это важно: правка AgentDefinition ломается
+      # именно на структурных литералах в тестах, а не в основном коде.
+      - name: cargo check --workspace --all-targets
+        run: cargo check --workspace --all-targets --locked
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+        continue-on-error: true
+
+  build:
+    name: build release (windows)
+    needs: check
+    if: ${{ github.event.inputs.skip_windows != 'true' }}
+    runs-on: windows-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: build-windows
+          cache-all-crates: true
+
+      # Профиль release, а не release-dist: последний включает thin LTO и
+      # codegen-units=1, что по комментарию в Cargo.toml даёт ~2.2x времени.
+      # Для проверки патча это лишнее.
+      - name: cargo build --release
+        run: cargo build --release --locked -p xai-grok-pager-bin
+
+      - name: Переименовать в grok.exe
+        shell: pwsh
+        run: |
+          $src = "target/release/xai-grok-pager.exe"
+          if (-not (Test-Path $src)) {
+            Write-Error "не найден $src"
+            Get-ChildItem target/release -Filter *.exe | Select-Object Name,Length
+            exit 1
+          }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item $src dist/grok.exe
+          Get-Item dist/grok.exe | Select-Object Name,Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grok-windows-x86_64
+          path: dist/grok.exe
+          retention-days: 14
+          if-no-files-found: error
