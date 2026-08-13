@@ -73,9 +73,11 @@ jobs:
           key: check-ubuntu
           cache-all-crates: true
 
+      # $AGENT_TOOLSDIRECTORY здесь НЕ трогать: это /opt/hostedtoolcache, куда
+      # setup-protoc кладёт protoc, а setup-rust-toolchain — тулчейн.
       - name: Освободить место на раннере
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "$AGENT_TOOLSDIRECTORY" || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/boost || true
           df -h /
 
       # --all-targets включает тесты. Это важно: правка AgentDefinition ломается
