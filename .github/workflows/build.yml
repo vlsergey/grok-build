@@ -42,6 +42,14 @@ jobs:
       - uses: actions/checkout@v4
 
       # Версия берётся из rust-toolchain.toml (там пин 1.94.0 + rustfmt/clippy).
+      # bin/protoc в дереве — не бинарь, а dotslash-заглушка. На раннере dotslash
+      # нет, поэтому build.rs (xai-proto-build::find_protoc) падает. Он проверяет
+      # $PROTOC, затем bin/protoc, затем PATH — достаточно положить protoc в PATH.
+      - name: protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -75,6 +83,14 @@ jobs:
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
+
+      # bin/protoc в дереве — не бинарь, а dotslash-заглушка. На раннере dotslash
+      # нет, поэтому build.rs (xai-proto-build::find_protoc) падает. Он проверяет
+      # $PROTOC, затем bin/protoc, затем PATH — достаточно положить protoc в PATH.
+      - name: protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
