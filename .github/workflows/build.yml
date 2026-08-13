@@ -50,6 +50,18 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # find_protoc проверяет $PROTOC ПЕРВЫМ и по существованию файла, а поиск по
+      # PATH у него в CI оказался ненадёжен (шаг setup-protoc проходит, а cargo
+      # protoc не находит). Задаём переменную явно — это первая ветка поиска.
+      - name: Export PROTOC
+        shell: bash
+        run: |
+          P="$(command -v protoc)"
+          if [ "$RUNNER_OS" = "Windows" ]; then P="$(cygpath -w "$P")"; fi
+          protoc --version
+          echo "PROTOC=$P" >> "$GITHUB_ENV"
+          echo "PROTOC=$P"
+
       - name: Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -91,6 +103,18 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # find_protoc проверяет $PROTOC ПЕРВЫМ и по существованию файла, а поиск по
+      # PATH у него в CI оказался ненадёжен (шаг setup-protoc проходит, а cargo
+      # protoc не находит). Задаём переменную явно — это первая ветка поиска.
+      - name: Export PROTOC
+        shell: bash
+        run: |
+          P="$(command -v protoc)"
+          if [ "$RUNNER_OS" = "Windows" ]; then P="$(cygpath -w "$P")"; fi
+          protoc --version
+          echo "PROTOC=$P" >> "$GITHUB_ENV"
+          echo "PROTOC=$P"
 
       - name: Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
