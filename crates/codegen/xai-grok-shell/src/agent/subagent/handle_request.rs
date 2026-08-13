@@ -487,6 +487,18 @@ pub(crate) async fn run_shell_child(
             }
         }
     }
+    // FORK-LOCAL: per-agent sampling override from the agent definition.
+    // Applied last, after model resolution and the unknown-model fallback, so the
+    // value follows the agent regardless of which model it ended up on. Mirrors the
+    // reasoning_effort override just above. `None` keeps the inherited value.
+    if let Some(temp) = definition.temperature {
+        tracing::debug!(
+            agent = %request.subagent_type,
+            temperature = temp,
+            "subagent temperature override from agent definition"
+        );
+        effective_sampling_config.temperature = Some(temp);
+    }
     let subagent_id = request.id.clone();
     let child_session_id = acp::SessionId::new(subagent_id.clone());
     let override_cwd = select_override_cwd(resume_source.as_ref(), request.cwd.as_deref());
